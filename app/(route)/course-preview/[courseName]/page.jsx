@@ -20,17 +20,12 @@ function CoursePreview({params}) {
         setCourse(data.result);
 
     }
-
-
     useEffect(() => {
       getCourseByCourseName();
   },[courseName]);
-
-
-
-
+  
   return course &&(
-    <div className='grid grid-cols-1 md:grid-cols-3 p-5 gap-3' >
+    <div className='grid grid-cols-1 md:grid-cols-3 p-5 gap-3 m-20' >
         {/* Title video, description */}
         <div className='col-span-2 bg-white p-3'> 
            <CourseDescription  course={course}/>
@@ -47,7 +42,6 @@ function CoursePreview({params}) {
     </div>
   )
 }
-
 
 
 export default CoursePreview

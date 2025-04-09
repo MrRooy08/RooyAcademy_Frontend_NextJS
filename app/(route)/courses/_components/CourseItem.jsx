@@ -23,6 +23,7 @@ import Image from 'next/image'
 
 function CourseItem({course}) {
 
+  const imgUrlAws = `https://mrrooy.s3.ap-southeast-2.amazonaws.com/${course.imageUrl}`;
 
   return (
     <div className=' border border-sky-500/20 rounded-xl 
@@ -37,8 +38,8 @@ function CourseItem({course}) {
     >
       <div className='p-2' >
       <Image 
-        src={`/${course.imageUrl}`} // Truy cập ảnh từ thư mục public
-        alt={course.name} 
+        src={imgUrlAws} // Truy cập ảnh từ thư mục public
+        alt={course.name || "No image available"} 
         width={500} 
         height={300} 
         className='rounded-xl w-full 
@@ -60,7 +61,7 @@ function CourseItem({course}) {
             <h2 className='text-[15px] col-span-2 grid justify-end'>{course.price}</h2>
             
         </div>
-        
+      
     </div>
   )
 }

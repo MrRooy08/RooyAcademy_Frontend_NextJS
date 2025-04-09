@@ -1,21 +1,26 @@
-import React from 'react'
+"use client";
+import React from "react";
+import Header from "./_components/Header";
+import AuthContext, { AuthProvider } from "../Context/AuthContext";
+import Footer from "./_components/Footer";
+import {Provider} from "react-redux";
+import store from "../Store/store";
 
-import Header from './_components/Header'
-
-function layout({children}) {
+function layout({ children }) {
   return (
-    <div>
-       
-        <div className=''>
-            <Header/>
-           <div className='mt-20'>
-           {children}
-           </div>
-           
-        </div>
-    </div>
-    
-  )
+    <Provider store={store}>
+      <AuthProvider>
+      <div>
+        <Header />
+      </div>
+      <div className="mt-2 ">{children}</div>
+      <div>
+        <Footer />
+      </div>
+      </AuthProvider>
+    </Provider>
+
+  );
 }
 
-export default layout
+export default layout;

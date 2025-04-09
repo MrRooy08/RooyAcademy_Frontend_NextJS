@@ -5,8 +5,9 @@ export const setToken = (token) => {
 };
 
 export const getToken = () => {
-  return localStorage.getItem(KEY_TOKEN);
+  return localStorage.getItem(KEY_TOKEN); // Trả về null nếu đang chạy trên server
 };
+
 
 export const removeToken = () => {
   return localStorage.removeItem(KEY_TOKEN);

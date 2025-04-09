@@ -11,20 +11,23 @@ import {
 import CourseItem from "./CourseItem";
 import Link from "next/link";
 
-
 function CourseList() {
   //fetch course list
-  const [course, setCourse] = useState([]); // khởi tạo ds đầu tiên 
-  const [isExpanded, setIsExpanded] = useState(false); // nút mở rộng 
-  const [coursesToShow, setCoursesToShow] = useState(4); // danh sách hiển thị tất cả 
-  const [remainingCourse, setRemainingCourse] = useState(0); // danh sách còn lại để hiển thị 
-  const [sortedCourse,setSortedCourse] = useState([]); // danh sách sau khi sắp xếp và lọc ra
-  const updateRemainingCourses = () =>
-    {
-      const remaining = sortedCourse.length - coursesToShow;
-      setRemainingCourse(remaining >= 4 ? 4 : remaining );
+  const [course, setCourse] = useState([]); // khởi tạo ds đầu tiên
+  const [isExpanded, setIsExpanded] = useState(false); // nút mở rộng
+  const [coursesToShow, setCoursesToShow] = useState(4); // danh sách hiển thị tất cả
+  const [remainingCourse, setRemainingCourse] = useState(0); // danh sách còn lại để hiển thị
+  const [sortedCourse, setSortedCourse] = useState([]); 
+  const handleOpen = () => {
+    // Kiểm tra và xóa thuộc tính data-scroll-locked nếu có
+    if (document.body.getAttribute("data-scroll-locked")) {
+      document.body.removeAttribute("data-scroll-locked");
     }
-
+  }; 
+  const updateRemainingCourses = () => {
+    const remaining = sortedCourse.length - coursesToShow;
+    setRemainingCourse(remaining >= 4 ? 4 : remaining);
+  };
 
   const getCourses = async () => {
     const response = await fetch("http://localhost:8080/course", {
@@ -37,32 +40,28 @@ function CourseList() {
     setSortedCourse(data.result);
   };
 
-  const handleSortChange = (value) =>
-  {
-      setCoursesToShow(4);
-      let sorted = [...course];
-      if (value === 'Free')
-      {
-        sorted = sorted.filter((course) => course.price === null);
-      }
-      else if (value === 'Paid')
-      {
-        sorted = sorted.filter((course) => course.price > 0);
-      } else {
-        sorted = course; // Show all courses
-      }
-      setSortedCourse(sorted);
-      updateRemainingCourses(sorted);
-  }
+  const handleSortChange = (value) => {
+    if (document.body.getAttribute("data-scroll-locked")) {
+      document.body.removeAttribute("data-scroll-locked");
+    }
+    setCoursesToShow(4);
+    let sorted = [...course];
+    if (value === "Free") {
+      sorted = sorted.filter((course) => course.price === null);
+    } else if (value === "Paid") {
+      sorted = sorted.filter((course) => course.price > 0);
+    } else {
+      sorted = course; // Show all courses
+    }
+    setSortedCourse(sorted);
+    updateRemainingCourses(sorted);
+  };
 
   const handleShowMore = () => {
-    
     // Khi click "Xem thêm", mở rộng số khóa học để hiển thị tất cả
-    if(coursesToShow + 4 <= sortedCourse.length)
-    {
-        setCoursesToShow(coursesToShow+4);
-    }
-    else{
+    if (coursesToShow + 4 <= sortedCourse.length) {
+      setCoursesToShow(coursesToShow + 4);
+    } else {
       setCoursesToShow(sortedCourse.length); // Hiển thị tất cả các khóa học
       setIsExpanded(true);
     }
@@ -72,23 +71,24 @@ function CourseList() {
     setIsExpanded(false);
     setCoursesToShow(4); // Quay lại hiển thị 4 khóa học
   };
-  
+
   useEffect(() => {
     getCourses();
-    
   }, []);
 
   useEffect(() => {
     updateRemainingCourses();
   }, [coursesToShow, sortedCourse]);
 
-
   return (
     <div className="p-5 bg-white rounded-lg mt-5">
       {/* tittle and filter */}
       <div className="flex items-center justify-between ">
         <h2 className="text-[20px] font-bold text-primary">All Course</h2>
-        <Select onValueChange={handleSortChange}>
+        <Select 
+          onValueChange={handleSortChange}
+          onOpenChange={handleOpen}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sort By" />
           </SelectTrigger>
@@ -109,44 +109,39 @@ function CourseList() {
                 </div>
               </Link>
             ))
-          : [1, 2, 3, 4].map((item,index) => (
+          : [1, 2, 3, 4].map((item, index) => (
               <div
                 key={index}
                 className="w-full  h-[240px]
           rounded-xl m-2 bg-slate-200 animate-pulse"
-              >{item}</div>
+              >
+                {item}
+              </div>
             ))}
       </div>
-      
+
       <div className="mt-5">
-        {sortedCourse.length >= coursesToShow &&(
-            <button className="border  border-sky-500 rounded-md  w-28 h-8 hover:bg-blue-100">
+        {sortedCourse.length >= coursesToShow && (
+          <button className="border  border-sky-500 rounded-md  w-28 h-8 hover:bg-blue-100">
             {!isExpanded && (
               <span
-                onClick={handleShowMore} 
+                onClick={handleShowMore}
                 className="cursor-pointer text-[13px] text-blue-600 font-medium  "
               >
-                
                 Show {remainingCourse} more
-                
               </span>
-              
             )}
-            {
-              isExpanded && (
-                <span
+            {isExpanded && (
+              <span
                 onClick={handleShowLess}
                 className="cursor-pointer text-[13px] text-blue-600 font-medium"
               >
                 Show Less
               </span>
-              )
-            }
+            )}
           </button>
         )}
       </div>
-
-      
     </div>
   );
 }
