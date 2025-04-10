@@ -4,6 +4,7 @@ class MCTSNode {
         this.state = state;
         this.parent = null;
         this.children = [];
+        this.unexploredChildren = [];
         this.visits = 0 ;
         this.wins = 0;
     }
