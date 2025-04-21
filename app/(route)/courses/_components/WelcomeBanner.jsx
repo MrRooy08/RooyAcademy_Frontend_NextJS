@@ -15,6 +15,11 @@ function WelcomeBanner() {
   const [alertMessage, setAlertMessage] = useState(""); // Nội dung thông báo
   const [alertSeverity, setAlertSeverity] = useState("success"); // Loại thông báo: success, error
   const [progress, setProgress] = useState(100); // khai báo tiến trình
+  const [showForm, setShowForm] = useState(false);
+
+  const handleOpenForm = () => setShowForm(true);
+  const handleCloseForm = () => setShowForm(false);
+  
 
   // Hàm callback nhận thông báo từ component con
   const handleShowSnackbar = (message, severity) => {
@@ -69,13 +74,20 @@ function WelcomeBanner() {
         {/* Truyền các props vào AddCourseForm */}
         {isLoggedIn &&
         user?.result?.roles.some((role) => role.name === "ADMIN") ? (
-          <Button className="w-24">
-            <FormAddCourse onShowSnackbar={handleShowSnackbar} />
-          </Button>
+          <>
+            <Button  onClick={handleOpenForm}>
+                Add Course
+            </Button>
+            {
+              showForm && (
+                <FormAddCourse onClose={handleCloseForm} 
+                onShowSnackbar={handleShowSnackbar} />
+              )
+            }
+          </> 
         ) : (
-          <div></div>
+          <div>Hello</div>
         )}
-
         <div style={{ display: "none" }}>
           <Login status={handleLogin} />
         </div>
