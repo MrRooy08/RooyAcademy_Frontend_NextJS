@@ -1,5 +1,6 @@
 import MCTSNode from "./MCTSNode";
 import gameState from './GameState';
+import { select } from "@nextui-org/react";
 
 class MCTS {
     constructor (rootState){
@@ -17,13 +18,14 @@ class MCTS {
             let newNode = this.expansion(node);
             console.log("🌱 Expanded Node:", newNode); 
             let result = this.simulation(newNode);
-            console.log("🎲 Simulation Result:", result);
-            console.log("Backpropagation started for node:", newNode);
-            console.log("root hien tai ", this.root);
+            // console.log("🎲 Simulation Result:", result);
+            // console.log("Backpropagation started for node:", newNode);
+            // console.log("root hien tai ", this.root);
             this.backPropagation(newNode, result);
-            console.log("root sau khi ket thuc ", this.root.children[0]);
+            console.log("root sau khi ket thuc ", this.root.unexploredChildren);
             console.log(this.root.children[0] instanceof MCTSNode); // 👉 true hoặc false
             console.log("Running iteration:", i);
+            console.log(" sau khi thuc su ket thuc ", this.root);
         }
     }
 
@@ -34,20 +36,18 @@ class MCTS {
             const child = new MCTSNode(move); // Tạo nút con từ nước đi
             child.parent = node; // Thiết lập parent cho nút con
             node.children.push(child); // Thêm nút con vào children
-            node.unexploredChildren.push(move); // Thêm nút con vào unexploredMoves
+            node.unexploredChildren.push(child); // Thêm nút con vào unexploredMoves
         });
     }
 
     selectBestChild (node) {
-        if (node.unexploredChildren.length === 0 ) return null;
         let bestChild = node.unexploredChildren[0]; // giả sử nút đầu tiên là tốt nhất
-        let bestUCB = node.getUCB1();//5 
+        let bestUCB = bestChild.getUCB1();//5 
         console.log("Best child:", bestChild);
         console.log("Best UCB:", bestUCB);
         for (let i = 0; i < node.unexploredChildren.length; i++ ) {
-            // if (node.children[i].getVisits() === 0) return node.children[i]; // Nếu chưa được viếng lần nào thì chọn luôn
             let child = new MCTSNode(node.unexploredChildren[i]); // lấy con nút thứ i 
-            
+
             const childUcb = child.getUCB1(); // tính gtri ucb nút con thứ i
 
             if (childUcb  > bestUCB )
@@ -62,34 +62,76 @@ class MCTS {
         return bestChild;
     }
     //selection
-    selection () {
-        // chọn node có nước đi dễ thắng nhất cho tới khi nút không còn được mở rộng và là nút lá 
+    selection() {
         let node = this.root;
-        console.log("Node  dong 60:", node);
-        let bestChild = null;
-        while ( node.unexploredChildren.length > 0 ){
-            bestChild = this.selectBestChild(node)// chọn nút con tốt nhất
-            console.log("da chay vao lenh while dong 65", bestChild);
-            return bestChild;
+        let depth = 0;
+        while (node) {
+            console.log(`Current depth: ${depth}, Node:`, node);
+            // Kiểm tra còn unexplored children không
+            if (node.unexploredChildren.length > 0) {
+                let bestChild = this.selectBestChild(node)// chọn nút con tốt nhất
+                console.log("da chay vao lenh while dong 74", bestChild);
+                return bestChild;
+            } else {
+                const bestVisitedChild = node.children.reduce((best, child) => {
+                    if (!best || child.getUCB1() > best.getUCB1()) {
+                        return child;
+                    }
+                    return best;
+                }, null);
+                if (bestVisitedChild) {
+                    console.log('Best visited child details:', {
+                        lastMove: bestVisitedChild.state._lastMove,
+                        board: bestVisitedChild.state.board,
+                        playerTurn: bestVisitedChild.state.getPlayerTurn,
+                        nextPlayer: bestVisitedChild.state.getNextPlayer,
+                        visits: bestVisitedChild.visits,
+                        wins: bestVisitedChild.wins,
+                        UCB: bestVisitedChild.getUCB1(),
+                        childrenCount: bestVisitedChild.children.length,
+                        unexploredCount: bestVisitedChild.unexploredChildren.length
+                    });
+                    
+                    // Nếu node này chưa có con, thêm các node con mới vào unexploredChildren
+                    if (bestVisitedChild.children.length === 0) {
+                        this.addChild(bestVisitedChild);
+                        let child = this.selectBestChild(bestVisitedChild);
+                        return child;
+                    } 
+                }
+            }
+
+            // Nếu không thể đi tiếp hoặc quay lui
+            if (node.parent) {
+                node = node.parent;
+                depth--;
+                console.log(`Backtracking to depth ${depth}`);
+            } else {
+                break;
+            }
         }
-        console.log("best child dong 67:", bestChild);
-        return node; // nó là nút lá 
+        // dang bi lỗi trả về node gốc nên không tìm thấy state trong expanded vì expanded mình dùng node.parent.state
+        console.log("No more nodes to select.");
+        return node;
     }
 
 
     expansion(node) {
-        // if (node!== null ) return node;
-        console.log("selection node duoc truyen vao dong 75", node);
-        
-        const newGameState = new gameState(this.root.state.board,0,1,this.root.state.lastMove);
+        const newGameState = new gameState(
+            node.parent.state.board,
+            node.parent.state.getNextPlayer,
+            node.parent.state.getPlayerTurn,
+            node.parent.state.getLastMove,
+        );
         console.log(" moves expansion ", newGameState);
         const nextState = newGameState.applyMove(node);
         console.log(" next state", nextState);
-        const childNode = this.root.children.find(child => child.state === nextState._lastMove); // tìm nút con trong children của root
+        const childNode = node.parent.children.find(child => child.state === nextState._lastMove.state); // tìm nút con trong children của root
+        console.log("child node expansion 89", childNode);
         childNode.state = nextState; // cập nhật state cho nút con
-        console.log("child node expansion", childNode);
-        this.root.unexploredChildren.splice(node, 1);
-        console.log(" children after expansion", this.root.children);
+        console.log("child node expansion 91", childNode);
+        node.parent.unexploredChildren.splice(node, 1);
+        console.log(" children after expansion", node.parent.unexploredChildren);
         return childNode;
 
     }
@@ -114,8 +156,10 @@ class MCTS {
             }
             else {
                 console.log("Nuoc di con trong:", moves);
-                const node = new MCTSNode();
-                node.unexploredChildren = moves;
+                // const node = new MCTSNode();
+                // node.unexploredChildren = moves;
+                const node = new MCTSNode(this.root);
+                node.unexploredChildren =  moves.map(move => new MCTSNode(move));
                 console.log("Node children 114:", node.children);
                 console.log("Node children 115:", node);
                 const newMoves = this.selectBestChild(node);
@@ -129,19 +173,33 @@ class MCTS {
         return nodeExpand.state.getResult();
     }
 
-    backPropagation (node,result) {
-        let i = 0;
-        console.log("node moi vao cua backpropagation", node);
-        while (node) {
-            node.visits++;
-            node.wins += result;
-            console.log("Backpropagation complete. node:", node," lan:", i);
-            node = node.parent;
-            console.log("Backpropagation complete. node parent", node," lan:", i);
-            console.log("Backpropagation complete. result:", result," lan:", i);
-            i++;
+    backPropagation(node, result) {
+        let currentNode = node;
+        while (currentNode) {
+            // Cập nhật visits và wins của node hiện tại
+            currentNode.visits++;
+            currentNode.wins += result;
+            
+            // Cập nhật UCB cho các node con đã được thăm
+            if (currentNode.children && currentNode.children.length > 0) {
+                currentNode.children.forEach(childNode => {
+                    if (childNode && childNode.visits > 0) {
+                        // Chuyển UCB thành float và làm tròn đến 4 chữ số thập phân
+                        childNode.ucb = parseFloat(childNode.getUCB1().toFixed(4));
+                        console.log("Updated visited child UCB:", {
+                            childState: childNode.state,
+                            childVisits: childNode.visits,
+                            childWins: childNode.wins,
+                            newUCB: childNode.ucb,
+                            ucbType: typeof childNode.ucb // Kiểm tra kiểu dữ liệu
+                        });
+                    }
+                });
+            }
+            
+            currentNode = currentNode.parent;
         }
-        console.log("hoan thanh back", node);
+        
     }
 }
 

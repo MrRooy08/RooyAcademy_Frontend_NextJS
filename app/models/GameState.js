@@ -96,7 +96,7 @@ class GameState {
     console.log(typeof this.board); // Kiểm tra kiểu dữ liệu của this.board
     console.log("check move", move);
     const newBoard = this.board.map((row) => [...row]);
-    //test
+
     if (this.getPlayerTurn === 1) {
       console.log(
         "Nuoc di cua nguoi :",
@@ -107,7 +107,12 @@ class GameState {
     } else {
       console.log("Nuoc di cua AI:", move, " nguoi choi: ", this.getPlayerTurn);
     }
-    newBoard[move[0]][move[1]] = this.getPlayerTurn;  
+    if (move instanceof Array ) {
+      newBoard[move[0]][move[1]] = 1;  
+    }
+    else {
+      newBoard[move.state[0]][move.state[1]] = this.getPlayerTurn;
+    }
     console.log("Ban co sau khi di trong gamestate:", newBoard);
     console.log("Nguoi choi hien tai:", this.getPlayerTurn);
     const isPlayerTurn = this.getPlayerTurn;
