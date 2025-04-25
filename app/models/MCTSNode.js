@@ -7,6 +7,7 @@ class MCTSNode {
         this.unexploredChildren = [];
         this.visits = 0 ;
         this.wins = 0;
+        this.ucb = Infinity;
     }
     
     get getVisits () {
@@ -14,10 +15,15 @@ class MCTSNode {
     }
 
 
-    getUCB1 () {
+    getUCB1() {
         if (this.visits === 0) return Infinity;
-        return this.wins / this.visits + Math.sqrt(2 * Math.log(this.parent.visits) /this.visits);
+        // Sử dụng phép chia để đảm bảo kết quả là float
+        const exploitationTerm = this.wins / this.visits;
+        const explorationTerm = Math.sqrt(2 * Math.log(this.parent.visits) / this.visits);
+        return exploitationTerm + explorationTerm;
     }
+
+    
 
     isFullyExpanded (){
         if (this.state.isTerminal()) return true;
