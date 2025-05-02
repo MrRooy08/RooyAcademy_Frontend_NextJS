@@ -1,42 +1,36 @@
 import { NextResponse } from "next/server";
-import { parse } from 'cookie'
 export async function middleware(req) {
-  const cookies = parse(req.headers.get("cookie") || "");
-  const token = cookies.accessToken;
-  const userNavigatingRoute = req.nextUrl.pathname;
-
-  if (!token) {
-    return NextResponse.redirect(new URL("/authentication", req.url));
+  const pathname = req.nextUrl.pathname;
+  if (!pathname.startsWith("/admin") && !pathname.startsWith("/user-profile")) {
+    return NextResponse.next();
   }
 
-  console.log("Token:", token);
   try {
-    const userResponse = await fetch("http://localhost:8080/users/myInfo", {
+    let access_token = req.cookies.get("access_token").value;
+    console.log("Du lieu accessToken", access_token);
+    const response = await fetch("http://localhost:8080/users/myInfo", {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${access_token}`,
       },
     });
+    const userData = await response.json();
+    console.log("Du lieu userData", userData);
+    const isAdmin = userData?.result?.roles.some(
+      (role) => role.name === "ADMIN"
+    );
 
-    if (!userResponse.ok) {
-      throw new Error(`HTTP error! status: ${userResponse.status}`);
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    const userData = await userResponse.json(); // Thông tin người dùng
-    console.log("User Data cua middleware:", JSON.stringify(userData));
-
-    const isAdmin = userData?.result?.roles.some((role) => role.name === "ADMIN");
-
-    if (userNavigatingRoute.startsWith("/admin") && !isAdmin){
-      return NextResponse.redirect(new URL("/not-found", req.url));
-    }
+    return NextResponse.next();
   } catch (error) {
-    console.error("Middleware error:", error);
-    return NextResponse.redirect(new URL("/authentication", req.url));
+    console.error("Token không hợp lệ hoặc đã hết hạn", error);
+    return NextResponse.redirect(new URL("/login", req.url));
   }
-  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"], // Các đường dẫn cần kiểm tra
+  matcher: ["/admin/:path*", "/user-profile"],
 };
