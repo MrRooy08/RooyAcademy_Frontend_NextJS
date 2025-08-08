@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   Select,
   SelectContent,
@@ -10,135 +10,117 @@ import {
 } from "@/components/ui/select";
 import CourseItem from "./CourseItem";
 import Link from "next/link";
+import { useGetCoursesQuery } from "@/app/features/courses/courseApi";
+
 
 function CourseList() {
-  //fetch course list
-  const [course, setCourse] = useState([]); // khởi tạo ds đầu tiên
-  const [isExpanded, setIsExpanded] = useState(false); // nút mở rộng
-  const [coursesToShow, setCoursesToShow] = useState(4); // danh sách hiển thị tất cả
-  const [remainingCourse, setRemainingCourse] = useState(0); // danh sách còn lại để hiển thị
-  const [sortedCourse, setSortedCourse] = useState([]); 
-  const handleOpen = () => {
-    // Kiểm tra và xóa thuộc tính data-scroll-locked nếu có
-    if (document.body.getAttribute("data-scroll-locked")) {
-      document.body.removeAttribute("data-scroll-locked");
+  const { data, isLoading, error } = useGetCoursesQuery({
+    refetchOnReconnect: true,
+    refetchOnFocus: true,
+  });
+
+  const courses = data?.result || [];
+
+  const [filter, setFilter] = useState("All");
+  const [coursesToShow, setCoursesToShow] = useState(4);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Tính danh sách đã lọc
+  const filteredCourses = useMemo(() => {
+    if (filter === "Free") {
+      return courses.filter((course) => course.price === 0 || course.price === null);
     }
-  }; 
-  const updateRemainingCourses = () => {
-    const remaining = sortedCourse.length - coursesToShow;
-    setRemainingCourse(remaining >= 4 ? 4 : remaining);
-  };
+    if (filter === "Paid") {
+      return courses.filter((course) => course.price > 0);
+    }
+    return courses;
+  }, [courses, filter]);
 
-  const getCourses = async () => {
-    const response = await fetch("http://localhost:8080/course", {
-      method: "GET",
-    });
-    const data = await response.json();
-    console.log(data);
-
-    setCourse(data.result);
-    setSortedCourse(data.result);
-  };
+  const visibleCourses = filteredCourses.slice(0, coursesToShow);
+  const remainingCourse = Math.max(filteredCourses.length - coursesToShow, 0);
 
   const handleSortChange = (value) => {
-    if (document.body.getAttribute("data-scroll-locked")) {
-      document.body.removeAttribute("data-scroll-locked");
-    }
+    setFilter(value);
     setCoursesToShow(4);
-    let sorted = [...course];
-    if (value === "Free") {
-      sorted = sorted.filter((course) => course.price === null);
-    } else if (value === "Paid") {
-      sorted = sorted.filter((course) => course.price > 0);
-    } else {
-      sorted = course; // Show all courses
-    }
-    setSortedCourse(sorted);
-    updateRemainingCourses(sorted);
+    setIsExpanded(false);
   };
 
   const handleShowMore = () => {
-    // Khi click "Xem thêm", mở rộng số khóa học để hiển thị tất cả
-    if (coursesToShow + 4 <= sortedCourse.length) {
-      setCoursesToShow(coursesToShow + 4);
+    if (coursesToShow + 4 <= filteredCourses.length) {
+      setCoursesToShow((prev) => prev + 4);
     } else {
-      setCoursesToShow(sortedCourse.length); // Hiển thị tất cả các khóa học
+      setCoursesToShow(filteredCourses.length);
       setIsExpanded(true);
     }
   };
 
   const handleShowLess = () => {
+    setCoursesToShow(4);
     setIsExpanded(false);
-    setCoursesToShow(4); // Quay lại hiển thị 4 khóa học
   };
 
-  useEffect(() => {
-    getCourses();
-  }, []);
-
-  useEffect(() => {
-    updateRemainingCourses();
-  }, [coursesToShow, sortedCourse]);
+  const handleOpen = () => {
+    if (document.body.getAttribute("data-scroll-locked")) {
+      document.body.removeAttribute("data-scroll-locked");
+    }
+  };
 
   return (
     <div className="p-5 bg-white rounded-lg mt-5">
-      {/* tittle and filter */}
-      <div className="flex items-center justify-between ">
-        <h2 className="text-[20px] font-bold text-primary">All Course</h2>
-        <Select 
-          onValueChange={handleSortChange}
-          onOpenChange={handleOpen}
-        >
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[20px] font-bold text-primary">Những kỹ năng bạn cần sẽ có trong này</h2>
+          <h2 className="text-gray-500">
+          Từ kỹ năng thiết yếu đến các chủ đề chuyên môn, 
+          <span className="text-primary">Rooy</span> luôn đồng hành cùng bạn trên hành trình phát triển sự nghiệp..
+          </h2>
+        </div>
+
+        <Select onValueChange={handleSortChange} onOpenChange={handleOpen}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sort By" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All</SelectItem>
-            <SelectItem value="Free">Free</SelectItem>
-            <SelectItem value="Paid">Paid</SelectItem>
+            <SelectItem value="All">Tất cả</SelectItem>
+            <SelectItem value="Free">Miễn Phí</SelectItem>
+            <SelectItem value="Paid">Trả phí</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      {/* className='grid grid-flow-row auto-cols-max p-6 gap-4 mt-5 ' */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4  gap-4 mt-5">
-        {sortedCourse?.length > 0
-          ? sortedCourse.slice(0, coursesToShow).map((course) => (
-              <Link href={"/course-preview/" + course.name}>
-                <div key={course.id}>
-                  <CourseItem course={course} />
-                </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 mt-5">
+        {isLoading ? (
+          [1, 2, 3, 4].map((item, index) => (
+            <div
+              key={index}
+              className="w-full h-[240px] rounded-xl m-2 bg-slate-200 animate-pulse"
+            />
+          ))
+        ) : (
+          visibleCourses.map((course, index) => (
+            <div key={index}>
+              <Link href={"/course-preview/" + course.id}>
+                <CourseItem course={course} />
               </Link>
-            ))
-          : [1, 2, 3, 4].map((item, index) => (
-              <div
-                key={index}
-                className="w-full  h-[240px]
-          rounded-xl m-2 bg-slate-200 animate-pulse"
-              >
-                {item}
-              </div>
-            ))}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="mt-5">
-        {sortedCourse.length >= coursesToShow && (
-          <button className="border  border-sky-500 rounded-md  w-28 h-8 hover:bg-blue-100">
-            {!isExpanded && (
-              <span
-                onClick={handleShowMore}
-                className="cursor-pointer text-[13px] text-blue-600 font-medium  "
-              >
-                Show {remainingCourse} more
-              </span>
-            )}
-            {isExpanded && (
-              <span
-                onClick={handleShowLess}
-                className="cursor-pointer text-[13px] text-blue-600 font-medium"
-              >
-                Show Less
-              </span>
-            )}
+        {filteredCourses.length > coursesToShow && !isExpanded && (
+          <button className="border border-sky-500 rounded-md w-28 h-8 hover:bg-blue-100" onClick={handleShowMore}>
+            <span className="cursor-pointer text-[13px] text-blue-600 font-medium">
+              Hiển thị thêm {remainingCourse} 
+            </span>
+          </button>
+        )}
+
+        {isExpanded && (
+          <button className="border border-sky-500 rounded-md w-28 h-8 hover:bg-blue-100" onClick={handleShowLess}>
+            <span className="cursor-pointer text-[13px] text-blue-600 font-medium">
+              Thu gọn
+            </span>
           </button>
         )}
       </div>
@@ -146,4 +128,4 @@ function CourseList() {
   );
 }
 
-export default CourseList;
+export default memo(CourseList);

@@ -15,77 +15,195 @@ import {
 import GoogleIcon from "@mui/icons-material/Google";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../Context/AuthContext";
+import { useLazyGetCourseByCourseIdQuery } from "@/app/features/courses/courseApi";
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from 'next/link'
 import useFormValidation from './../../../hooks/form/useFormValidation';
-
-
+import GoogleLogin from "./GoogleLogin";
+import { toast } from "sonner";
+import LoadingOverlay from "@/app/_components/LoadingOverlay";
+import { useCart } from "@/app/Context/CartContext";
 
 export default function Login() {
+  const { cartItems, clearCart, removeItem } = useCart();
+  const [triggerGetCourse] = useLazyGetCourseByCourseIdQuery();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect');
   const { login } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [snackBarOpen, setSnackBarOpen] = useState(false);
   const [snackBarMessage, setSnackBarMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const validateLogin = (values) => {
     const errors = {};
     if (!values.username) {
-      errors.username = 'Username is required';
-    } else if (values.username.length < 3) {
-      errors.username = 'Username must be at least 5 characters long';
-    }
-    if (!values.password) {
-      errors.password = 'Password is required';
+      errors.username = 'Tên đăng nhập là bắt buộc';
+    } else if (values.username.length < 5) {
+      errors.username = 'Tên đăng nhập phải có ít nhất 5 ký tự';
+    } else if (!values.password || values.password.length < 5) {
+      errors.password = 'Tên đăng nhập hoặc mật khẩu không đúng';
     }
     return errors;
   };
 
-  const onSubmit = (values) => {
-
-    fetch("http://localhost:8080/auth/log-in", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        username: values.username,
-        password: values.password,
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        startProcessing();
-        if (data.code !== 0) {
-          throw new Error(data.message);
+  const onSubmit = async (values) => {
+    setIsSubmitting(true);
+    try {
+      const success = await login(values.username, values.password);
+      if (success) {
+        // If user was redirected here from a "Buy Now" action we might not have any cart items yet.
+        if (redirectTo?.startsWith("/checkout")) {
+          const userResponse = await fetch(
+            "http://localhost:8080/users/myInfo",
+            {
+              credentials: 'include',
+            }
+          )
+          const userInfo = await userResponse.json();
+          let courseId = cartItems[0]?.id;
+          let isInstructorOfAny = false;
+          // Case 1: User already has items in cart ("Add to cart" flow)
+            if (cartItems.length > 0 ) {
+            try {
+              for (const item of cartItems) {
+                const course = await triggerGetCourse(item.id).unwrap();
+                const isOwner = course?.result?.instructorCourse?.some(
+                  (ins) =>
+                    ins.instructor === userInfo?.result?.instructorId &&
+                    ins.isOwner === "true"
+                );
+                if (isOwner) {
+                  courseId = item.id;
+                  isInstructorOfAny = true;
+                  break; // chỉ cần 1 khoá học là giảng viên thì dừng lại
+                }
+              }
+              if (isInstructorOfAny) {
+                toast.success("Đăng nhập thành công!", {
+                  description: (
+                    <span className="font-bold">
+                      Vì bạn là giảng viên của khoá học này nên sẽ được chuyển đến trang chỉnh sửa khoá học
+                    </span>
+                  ),
+                  action: {
+                    label: "Undo",
+                  },
+                  duration: 2000,
+                  position: "top-right",
+                });
+                clearCart();
+                router.push(`/dashboard/manage/${courseId}/edit`);
+                return;
+              } else {
+                toast.success("Đăng nhập thành công!", {
+                  description: (
+                    <span className="font-bold">
+                      Hãy mau thanh toán để có thể sử dụng khoá học này
+                    </span>
+                  ),
+                  action: {
+                    label: "Undo",
+                  },
+                  duration: 2000,
+                  position: "top-right",
+                });
+                
+                router.back();
+              }
+            } catch (error) {
+              toast.error(`Bạn đã là giảng viên của khoá học ${courseId} nên không thể thanh toán`);
+              setIsSubmitting(false);
+              return;
+            }
+          } else {
+            // Case 2: "Buy Now" flow – cart is still empty so use courseName taken from redirectTo URL
+            try {
+              const courseSlug = redirectTo.split("/checkout/")[1];
+              const course = await triggerGetCourse(courseSlug).unwrap();
+              const isOwner = course?.result?.instructorCourse?.some(
+                (ins) =>
+                  ins.instructor === userInfo?.result?.instructorId &&
+                  ins.isOwner === "true"
+              );
+              if (isOwner) {
+                toast.success("Đăng nhập thành công!", {
+                  description: (
+                    <span className="font-bold">
+                      Vì bạn là giảng viên của khoá học này nên sẽ được chuyển đến trang chỉnh sửa khoá học
+                    </span>
+                  ),
+                  action: {
+                    label: "Undo",
+                  },
+                  duration: 2000,
+                  position: "top-right",
+                });
+                router.push(`/dashboard/manage/${courseSlug}/edit`);
+                return;
+              } else {
+                toast.success("Đăng nhập thành công!", {
+                  description: (
+                    <span className="font-bold">
+                      Hãy mau thanh toán để có thể sử dụng khoá học này
+                    </span>
+                  ),
+                  action: {
+                    label: "Undo",
+                  },
+                  duration: 2000,
+                  position: "top-right",
+                });
+                router.push(redirectTo);
+                return;
+              }
+            } catch (error) {
+              toast.error("Đã xảy ra lỗi khi lấy thông tin khoá học");
+              setIsSubmitting(false);
+              return;
+            }
+          }
         }
-        handleClickClose();
-      })
-      .catch((error) => {
-        let customErrorMessage = 'Cannot access! Please try later';
-        if (error.message === 'Failed to fetch') {
-          customErrorMessage = 'Cannot access! Please try later';
-        } else if (error.message) {
-          customErrorMessage = error.message; 
+        else {
+          toast.success("Đăng nhập thành công!", {
+            action: {
+              label: "Undo",
+            },
+            duration: 2000,
+            position: "top-right",
+          });
+          if (pathname === "/login") {
+            router.push("/courses");
+          }
+          else {
+            router.refresh();
+          }
         }
-        setSnackBarMessage(customErrorMessage);
-        setSnackBarOpen(true);
-      })
-      .finally(() => {
-        stopProcessing();
-      });
+      } else {
+        toast.error("Tên đăng nhập hoặc mật khẩu không đúng");
+        setErrors({ "username": "Tên đăng nhập hoặc mật khẩu không đúng", "password": "Tên đăng nhập hoặc mật khẩu không đúng" });
+        setValues({ username: "", password: "" });
+        setIsSubmitting(false);
+      }
+    }
+    catch (error) {
+      toast.error("Tên đăng nhập hoặc mật khẩu không đúng ");
+      setIsSubmitting(false);
+    }
   };
 
-  const { values, errors, handleChange, handleSubmit } = useFormValidation({ username: "", password: "" }, validateLogin, onSubmit);
+
+  const { values, setValues, setErrors, errors, handleChange, handleSubmit } = useFormValidation({ username: "", password: "" }, validateLogin, onSubmit);
 
 
   useEffect(() => {
     if (pathname === "/login") {
       handleClickOpen()
     }
-  }, [pathname])
+  }, [pathname, isSubmitting])
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -131,12 +249,11 @@ export default function Login() {
               }}
               onClick={handleClickOpen}
             >
-              Get Started
+              Bắt đầu
             </Button>
           </Tooltip>
-        )}
-
-
+        )
+      }
 
       <Dialog open={open} onClose={(event, reason) => {
         if (reason === "backdropClick") {
@@ -144,7 +261,7 @@ export default function Login() {
         }
         handleClickClose();
       }}>
-
+        {isSubmitting && <LoadingOverlay />}
         <Snackbar
           open={snackBarOpen}
           onClose={handleCloseSnackBar}
@@ -212,7 +329,7 @@ export default function Login() {
           >
             <CardContent>
               <Typography sx={{ textAlign: 'center' }} variant="h5" component="h1" gutterBottom >
-                Welcome to Rooy Education
+                Chào mừng đến với Rooy Academy
               </Typography>
               <Box
                 component="form"
@@ -234,8 +351,10 @@ export default function Login() {
                   error={Boolean(errors.username)}
                   helperText={errors.username}
                   required
+                  autoComplete="username"
                 />
                 <TextField
+                  aria-invalid="false"
                   label="Password"
                   type="password"
                   variant="outlined"
@@ -247,19 +366,21 @@ export default function Login() {
                   error={Boolean(errors.password)}
                   helperText={errors.password}
                   required
+                  autoComplete="current-password"
                 />
                 <Button
                   type="submit"
                   variant="contained"
                   color="primary"
                   size="large"
+                  disabled={isSubmitting}
                   fullWidth
                   sx={{
                     mt: "15px",
                     mb: "25px",
                   }}
                 >
-                  Login
+                  Đăng nhập
                 </Button>
                 <Divider />
               </Box>
@@ -270,25 +391,15 @@ export default function Login() {
                 width="100%"
                 gap="25px"
               >
-                <Button
-                  type="button"
-                  variant="contained"
-                  color="secondary"
-                  size="large"
-                  onClick={handleClick}
-                  fullWidth
-                  sx={{ gap: "10px" }}
-                >
-                  <GoogleIcon />
-                  Continue with Google
-                </Button>
+                <GoogleLogin />
                 <Button
                   type="submit"
                   variant="contained"
                   color="success"
                   size="large"
+                  onClick={() => router.push("/signup")}
                 >
-                  Create an account
+                  Đăng ký
                 </Button>
               </Box>
             </CardContent>

@@ -1,44 +1,639 @@
 "use client"
-import React, {useEffect, useState} from 'react'
-import CourseDescription from '../_components/CourseDescription';
-import CourseEnrollSection from '../_components/CourseEnrollSection';
-import LessonByCourse from '../_components/LessonByCourse';
+import React, { useEffect, useState } from 'react'
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/Context/AuthContext";
+import {
+  ArrowLeft,
+  CheckCircle,
+  Calendar,
+  Tag,
+  Target,
+  Users,
+  BookOpen,
+  Play,
+  Video,
+  ImageIcon,
+  FileText,
+  XCircle,
+  Clock,
+  DollarSign,
+  ShoppingCart,
+  Download
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { useGetCourseByCourseIdQuery, useGetCourseMetaQuery, useGetEnrolledCoursesQuery, useCreateCartMutation, 
+  useEnrollCourseMutation,
+  useDeleteCartItemsMutation } from "@/app/features/courses/courseApi"
+import { motion } from "framer-motion"
+import { useCart } from "@/app/Context/CartContext";
+import { useCourse } from "@/app/Context/CourseContext"
+import LoadingSpinner from "@/app/_components/LoadingSpinner"
+import { toast } from "sonner"
+import { useParams } from "next/navigation"
 
-function CoursePreview({params}) {
-  const {courseName} = params;
-  const [course,setCourse] = useState(null);
+const formatPrice = (price) => {
+  return price !== null ? `${price} VND` : "Miễn phí"
+}
 
-    const getCourseByCourseName = async() => {
-      const response = await fetch (
-        `http://localhost:8080/course/get-course-name?name=${decodeURIComponent(courseName)}`,
-        {
-          method: "GET",
-        });
+const getLevelText = (level) => {
+  switch (level) {
+    case "TD01":
+      return "Cơ bản"
+    case "TD02":
+      return "Trung cấp"
+    case "TD03":
+      return "Nâng cao"
+    default:
+      return "Không xác định"
+  }
+}
 
-        const data = await response.json();
-        console.log(data);
-        setCourse(data.result);
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString()
+}
 
+function CoursePreview() {
+  const router = useRouter();
+  const { isLoggedIn, user } = useAuth();
+  const { addItem, cartItems } = useCart();
+  const { setSelectedCourse } = useCourse();
+  const params = useParams();
+  const [createCart] = useCreateCartMutation();
+  const [enrollCourse] = useEnrollCourseMutation();
+  const { data: courseDetailData, error: courseError } = useGetCourseByCourseIdQuery(params.courseName);
+  const { data: courseMetaData, error: metaError } = useGetCourseMetaQuery(params.courseName);
+  const course = courseDetailData?.result;
+  const courseMeta = courseMetaData?.result?.meta;
+  const courseSections = course?.sections;
+
+  const { data: enrolledData } = useGetEnrolledCoursesQuery(undefined, { skip: !isLoggedIn });
+  const isPurchased = enrolledData?.result?.some(c => c.id === course?.id);
+  console.log(isPurchased, "isPurchased")
+  const isInCart = cartItems.some(c => c.id === course?.id);
+  // Kiểm tra xem người dùng hiện tại có phải giảng viên chính của khoá học không
+  const isInstructor = user?.result?.instructorId && course?.instructorCourse?.some(
+    (ins) => ins.isOwner === "true" && ins.instructor === user.result.instructorId
+  );
+  console.log(isInstructor, "isInstructor")
+
+  const handleBuyNow = () => {
+    if (!isLoggedIn) {
+      router.push(`/login?redirect=/checkout/${params.courseName}`)
+    } else {
+      setSelectedCourse(course);
+      router.push(`/checkout/${params.courseName}`)
     }
-    useEffect(() => {
-      getCourseByCourseName();
-  },[courseName]);
-  
-  return course &&(
-    <div className='grid grid-cols-1 md:grid-cols-3 p-5 gap-3 m-20' >
-        {/* Title video, description */}
-        <div className='col-span-2 bg-white p-3'> 
-           <CourseDescription  course={course}/>
-        </div>
-        <div>
-            <div>
-            <CourseEnrollSection course={course} />
+  }
+
+  const handleAddToCart = (course) => {
+    if (isLoggedIn) {
+      const items = [
+        {
+          courseId: course.id,
+          originalPrice: course.price,
+          discountedPrice: course.price,
+          discountCode: "",
+        }
+      ]
+      createCart(items)
+    }
+    addItem(course);
+  }
+
+  const handleFreeCourse = async () => {
+    if (!isLoggedIn) {
+      router.push(`/login?redirect=/learn/${params.courseName}`)
+    } else {
+      setSelectedCourse(course);
+      try {
+        await enrollCourse({courseId: course.id});
+        router.replace(`${params.courseName}/learn`)
+        toast.success("Đăng ký thành công!")
+      } catch (error) {
+        toast.error("Lỗi khi đăng ký!")
+      }
+    }
+  }
+
+  const [previewVideo, setPreviewVideo] = useState({
+    isOpen: false,
+    videoUrl: "",
+    lessonId: "",
+  })
+
+  const handlePreviewVideo = (videoUrl, lessonId) => {
+    setPreviewVideo({
+      isOpen: true,
+      videoUrl,
+      lessonId,
+    })
+  }
+
+  const closePreviewVideo = () => {
+    setPreviewVideo({
+      isOpen: false,
+      videoUrl: "",
+      lessonId: "",
+    })
+  }
+
+
+  const getLessonVideoUrl = (fileOrString, lessonId, baseUrl) => {
+    if (fileOrString instanceof File || fileOrString instanceof Blob) {
+      return URL.createObjectURL(fileOrString);
+    }
+
+    if (typeof fileOrString === "string") {
+      return fileOrString.startsWith("http")
+        ? fileOrString
+        : `${baseUrl}${lessonId}/${fileOrString}`;
+    }
+
+    return "";
+  };
+
+  const ResourceDropdown = ({ mediaList = [] }) => {
+    if (!mediaList.length) return null
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="xs" className="bg-transparent">
+            <Download className="w-4 h-4 mr-1" />
+            Tài nguyên
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {mediaList.map((file, idx) => (
+            <DropdownMenuItem
+              key={file.id}
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = `/uploads/${file.name}`;
+                link.download = file.name;
+                link.click();
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {file.name.length > 30 ? file.name.slice(0, 30) + "..." : file.name}
+            </DropdownMenuItem>
+          ))}
+
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
+  // Show a spinner while data is loading
+  if (!course || !courseMeta || !courseSections) {
+    return <LoadingSpinner />
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
+          <div className="flex-1 flex items-center space-x-4">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Quay lại
+            </Button>
+            <div className="flex-1 text-center">
+              <h1 className="text-2xl font-bold text-gray-900">Chi tiết khóa học</h1>
             </div>
-            <div className='mt-1'>
-              <LessonByCourse course={course}/>
-              </div>
-            
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="lg:col-span-2 space-y-6"
+          >
+            {/* Course Overview */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-xl mb-2">{course.name}</CardTitle>
+                    <CardDescription className="text-base">{course.subtitle}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="aspect-video relative rounded-lg overflow-hidden bg-gray-100">
+                  <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                    {course?.videoUrl ? (
+                      <video
+                        controls
+                        src={`http://localhost:8080/files/courses/videos/${course.id}/${course.videoUrl}`}
+                        type="video/mp4"
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-500">Không có video hoặc ảnh preview</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Danh mục cha </div>
+                      <div className="text-sm font-medium">{course.parentcategory}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Danh mục</div>
+                      <div className="text-sm font-medium">{course.category}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Giá</div>
+                      <div className="text-sm font-medium">{formatPrice(course.price)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Chủ đề</div>
+                      <div className="text-sm font-medium">{course.topic}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Cấp độ</div>
+                      <div className="text-sm font-medium">{getLevelText(course.levelCourse)}</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Course Goals */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Target className="w-5 h-5" />
+                  <span>Mục tiêu khóa học</span>
+                </CardTitle>
+                <CardDescription>Những gì học viên sẽ đạt được sau khi hoàn thành khóa học</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {courseMeta.GOAL.map((goal, index) => (
+                    <li key={goal.id} className="flex items-start space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">{goal.content}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Target Audience */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5" />
+                  <span>Đối tượng học viên</span>
+                </CardTitle>
+                <CardDescription>Khóa học này phù hợp với những ai</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {courseMeta.AUDIENCE.map((audience, index) => (
+                    <li key={audience.id} className="flex items-start space-x-2">
+                      <Users className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">{audience.content}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Requirements */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BookOpen className="w-5 h-5" />
+                  <span>Yêu cầu trước khi học</span>
+                </CardTitle>
+                <CardDescription>Kiến thức và công cụ cần thiết</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {courseMeta.REQUIREMENT.map((requirement, index) => (
+                    <li key={requirement.id} className="flex items-start space-x-2">
+                      <div className="w-4 h-4 border-2 border-orange-500 rounded-full mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">{requirement.content}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5" />
+                  <span>Mô tả khoá học</span>
+                </CardTitle>
+                <CardDescription>Thông tin chi tiết </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="ql-editor leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: course.description }}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Course Content */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BookOpen className="w-5 h-5" />
+                  <span>Nội dung khóa học</span>
+                </CardTitle>
+                <CardDescription>Chi tiết các phần học và bài giảng</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {courseSections.map((section, sectionIndex) => (
+                    <div key={section.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-lg">
+                          Phần {section.index}: {section.title}
+                        </h4>
+                        <Badge variant="outline">{section.lessons.length} bài học</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">{section.description}</p>
+
+                      <div className="space-y-3">
+                        {section.lessons.map((lesson, lessonIndex) => (
+                          <div key={lessonIndex} className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-start justify-between mb-2 gap-2">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-sm">
+                                  Bài {lesson.index}: {lesson.name}
+                                </h5>
+                                <p className="text-xs text-gray-600 mt-1">{lesson.description}</p>
+                              </div>
+                              {lesson.isPreviewable === "true" && (
+                                <Button
+                                  size="xs"
+                                  className="text-blue-500 hover:text-blue-600"
+                                  variant="ghost"
+                                  onClick={() => handlePreviewVideo(lesson.video_url, lesson.id)}
+                                >
+                                  <Play className="w-3 h-3 mr-1" /> Xem trước
+                                </Button>
+                              )}
+                              <ResourceDropdown mediaList={
+                                Array.isArray(lesson.mediaList)
+                                  ? lesson.mediaList
+                                  : Object.entries(lesson.mediaList || {}).map(([id, name]) => ({ id, name }))
+                              } />
+                            </div>
+
+                            {lesson.content && (
+                              <div className="mb-2">
+                                <p className="text-xs text-gray-700">{lesson.content}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Instructors */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Giảng viên</CardTitle>
+                <CardDescription>Thông tin về các giảng viên của khóa học</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {course.instructorCourse
+                    .filter((instructor) => instructor.isActive === "Active") // chỉ giữ instructor đã active
+                    .map((instructor, index) => (
+                      <div
+                        key={instructor.instructor}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="w-12 h-12">
+                            <AvatarFallback>
+                              {instructor.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{instructor.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {instructor.isOwner === "true" ? "Giảng viên chính" : "Giảng viên phụ"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="default">{instructor.isActive}</Badge>
+                          {instructor.permissions.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {instructor.permissions.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Sidebar */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Sticky Course Info & Actions */}
+            <div className="sticky top-6 space-y-6">
+              {/* Course Info */}
+              <Card className="shadow-lg border-2">
+                <CardHeader>
+                  <CardTitle>Thông tin khóa học</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Ngày tạo</div>
+                      <div className="text-sm">{formatDate(course.createdAt)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <div className="text-xs text-gray-500">Cập nhật lần cuối</div>
+                      <div className="text-sm">{formatDate(course.updatedAt)}</div>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">ID khóa học</div>
+                    <div className="text-xs font-mono bg-gray-100 p-2 rounded">{course.id}</div>
+                  </div>
+                </CardContent>
+              </Card>
+              {
+                isInstructor ? (
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => router.push(`/dashboard/manage/${course.id}/edit?role=INSTRUCTOR`)}>
+                    <Play className="w-4 h-4 mr-2" />
+                    Quản lý khóa học
+                  </Button>
+                ) : isPurchased ? (
+                  <Button variant="outline" className="w-full" 
+                  // onClick={() => router.push(`/${params.courseName}/learn/lecture/${courseSections[0].lessons[0].id || courseSections[0].lessons[0].id}`)}
+                  onClick={() => {
+                    const firstSection = courseSections[0];
+                    const firstLessonId = firstSection?.lessons?.[0]?.id;
+                  
+                    const targetUrl = firstLessonId
+                      ? `/${params.courseName}/learn/lecture/${firstLessonId}`
+                      : `/${params.courseName}/learn/lecture/${firstSection}`;
+                  
+                    router.push(targetUrl);
+                  }}
+                    >
+                    <Play className="w-4 h-4 mr-2" />
+                    Học tiếp khóa học này
+                  </Button>
+                ) : (
+                  <Card className="shadow-lg border-2">
+                    {course.price === 0 ? (
+                      <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={handleFreeCourse}>
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Học ngay miễn phí đó!!! Kẻo bỏ lỡ
+                      </Button>
+                    ) : (
+                      <>
+                        <CardHeader >
+                          <CardTitle>{course.price === 0 ? "Miễn phí" : new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(course.price)}</CardTitle>
+                          <CardDescription className="flex items-center space-x-2">
+                            <Clock className='w-4 h-4 mr-1' />
+                            1 ngày còn lại với mức giá này!
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {isInCart ? (
+                            <Button className="w-full" onClick={() => router.push('/cart')}>
+                              <ShoppingCart className="w-4 h-4 mr-2" />
+                              Đi tới giỏ hàng
+                            </Button>
+                          ) : (
+                            <Button
+                              className="w-full"
+                              onClick={() => {
+                                handleAddToCart(course);
+                                toast.success('Đã thêm khóa học vào giỏ hàng', {
+                                  duration: 5000,
+                                  label: 'Đi tới giỏ hàng',
+                                  action: (
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        router.push('/cart');
+                                      }}
+                                    >
+                                      Xem giỏ hàng
+                                    </Button>
+                                  )
+                                });
+                              }}>
+                              <ShoppingCart className="w-4 h-4 mr-2" />
+
+                              Thêm vào giỏ hàng
+                            </Button>
+                          )}
+
+                          <Button variant="outline" className="w-full" onClick={handleBuyNow}>
+                            <DollarSign className="w-4 h-4 mr-2" />
+                            Mua ngay
+                          </Button>
+                        </CardContent>
+                      </>
+                    )}
+                  </Card>
+                )
+              }
+
+            </div>
+          </motion.div>
         </div>
+        <Dialog open={previewVideo.isOpen} onOpenChange={closePreviewVideo}>
+          <DialogContent className="max-w-4xl w-full">
+            <DialogHeader>
+              <DialogTitle>Xem trước Video</DialogTitle>
+              <DialogDescription>Video bài học từ server localhost:8080</DialogDescription>
+            </DialogHeader>
+            <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
+              {previewVideo.videoUrl && (
+                <video
+                  controls
+                  className="w-full h-full"
+                  src={getLessonVideoUrl(previewVideo.videoUrl, previewVideo.lessonId, `${process.env.NEXT_PUBLIC_API_URL_VIDEO_LESSON}`)}
+                  onError={(e) => {
+                    const mediaError = e?.target?.error;
+                    console.error("Video load error:", mediaError);
+                    toast.error("Không thể tải video xem trước");
+                  }}
+                >
+
+                  Trình duyệt của bạn không hỗ trợ video HTML5. Hello
+                </video>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closePreviewVideo}>
+                Đóng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

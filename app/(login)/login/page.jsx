@@ -2,8 +2,6 @@
 
 import React from 'react'
 import Login from "./Login"
-import { ArrowLeft, Loader2, KeyRound, Mail } from "lucide-react";
-import Link from 'next/link'
 
 function page() {
   return (

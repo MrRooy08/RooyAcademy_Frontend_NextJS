@@ -6,20 +6,15 @@ import FormAddCourse from "./FormAddCourse";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
-import Login from "../../authentication/Login";
-import { AuthContext } from "../../../Context/AuthContext";
+import Login from "../../../(login)/login/Login";
+import { useAuth } from './../../../Context/AuthContext';
 
-function WelcomeBanner() {
-  const { isLoggedIn, user } = useContext(AuthContext);
+function WelcomeBanner({onCourseAdded}) {
+  const { isLoggedIn, user } = useAuth();
   const [openSnackbar, setOpenSnackbar] = useState(false); // Trạng thái hiển thị Snackbar
   const [alertMessage, setAlertMessage] = useState(""); // Nội dung thông báo
   const [alertSeverity, setAlertSeverity] = useState("success"); // Loại thông báo: success, error
   const [progress, setProgress] = useState(100); // khai báo tiến trình
-  const [showForm, setShowForm] = useState(false);
-
-  const handleOpenForm = () => setShowForm(true);
-  const handleCloseForm = () => setShowForm(false);
-  
 
   // Hàm callback nhận thông báo từ component con
   const handleShowSnackbar = (message, severity) => {
@@ -59,7 +54,7 @@ function WelcomeBanner() {
       <div>
         <h2 className="font-bold text-[29px]">
           {" "}
-          Welcome to
+          Chào mừng đến với 
           <span className="text-primary"> Rooy Education </span>
           Academy
         </h2>
@@ -69,25 +64,6 @@ function WelcomeBanner() {
         </h2>
       </div>
       
-      <div>
-        {/* Nút mở form */}
-        {/* Truyền các props vào AddCourseForm */}
-        {isLoggedIn &&
-        user?.result?.roles.some((role) => role.name === "ADMIN") ? (
-          <>
-            <Button  onClick={handleOpenForm}>
-                Add Course
-            </Button>
-            {
-              showForm && (
-                <FormAddCourse onClose={handleCloseForm} 
-                onShowSnackbar={handleShowSnackbar} />
-              )
-            }
-          </> 
-        ) : (
-          <div>Hello</div>
-        )}
         <div style={{ display: "none" }}>
           <Login status={handleLogin} />
         </div>
@@ -106,7 +82,6 @@ function WelcomeBanner() {
             <LinearProgress variant="determinate" value={progress} />
           </Alert>
         </Snackbar>
-      </div>
     </div>
   );
 }
