@@ -11,6 +11,8 @@ module.exports = {
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+			  persianPink: '#F77FBE',
+			  lavenderPink: '#FBAED2',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -20,7 +22,7 @@ module.exports = {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			primary: {
-  				DEFAULT: "#7D41E1",
+  				DEFAULT: '#7D41E1',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
@@ -48,8 +50,23 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			sidebar: {
+  				DEFAULT: 'hsl(var(--sidebar-background))',
+  				foreground: 'hsl(var(--sidebar-foreground))',
+  				primary: 'hsl(var(--sidebar-primary))',
+  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+  				accent: 'hsl(var(--sidebar-accent))',
+  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+  				border: 'hsl(var(--sidebar-border))',
+  				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
+		backgroundImage: {
+			'pink-gradient': 'linear-gradient(90deg, #F77FBE 0%, #FBAED2 100%)',
+			'wine-gradient': 'linear-gradient(90deg, #722F37 0%, #F5F5F5 100%)',
+			'champagne-pink': 'linear-gradient(135deg, #FCE4D8 10%, #F75590 90%)',
+		}			  ,
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

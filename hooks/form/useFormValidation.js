@@ -21,10 +21,13 @@ export default function useFormValidation (initialValues, validate, onSubmit) {
         if(Object.keys (validationErrors).length === 0){
             onSubmit(values);
         }
+        
     }
 
     return {
         values, 
+        setValues,
+        setErrors,
         errors,
         handleChange,
         handleSubmit,

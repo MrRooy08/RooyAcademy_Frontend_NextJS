@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 export const categoryApi = createApi({
   reducerPath: "categoryApi",
-  baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:8080/" }),
+  baseQuery: fetchBaseQuery({ baseUrl: process.env.NEXT_PUBLIC_API_URL }),
   endpoints: (builder) => ({
     getCategories: builder.query({
       query: () => "category/get-category",
@@ -10,4 +10,4 @@ export const categoryApi = createApi({
   }),
 });
 
-export const { useGetCategoriesQuery } = categoryApi; // ✅ Export hook để sử dụng
+export const { useGetCategoriesQuery } = categoryApi;

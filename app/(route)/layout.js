@@ -13,7 +13,7 @@ function layout({ children }) {
       <div>
         <Header />
       </div>
-      <div className="mt-2 ">{children}</div>
+      <div className="mt-2 bg-white ">{children}</div>
       <div>
         <Footer />
       </div>

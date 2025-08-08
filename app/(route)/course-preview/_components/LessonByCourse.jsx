@@ -25,7 +25,7 @@ function LessonByCourse({course}) {
   return (
     <div className='p-3 bg-white rounded-sm'>
           <h2 >Content Course </h2>
-      {lesson.length > 0 ? lesson.map((lesson,index) =>(
+      {lesson?.length > 0 ? lesson.map((lesson,index) =>(
         <div key={lesson.id}>
               <h2 className='p-2 text-[14px] flex justify-between 
               items-center m-3  hover:bg-gray-200 hover:text-gray-500 

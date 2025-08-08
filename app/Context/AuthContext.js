@@ -1,93 +1,135 @@
 "use client";
 import React, { createContext, useState, useEffect, useContext } from "react";
-import {
-  getToken,
-  removeToken,
-  setToken,
-} from "../_services/localStorageService";
+import { store } from "@/app/Store/store";
+import { courseApi } from "@/app/features/courses/courseApi";
 import { useRouter } from "next/navigation";
+import { useCart } from "@/app/Context/CartContext";
+import { useLazyGetCourseByCourseIdQuery } from "@/app/features/courses/courseApi";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const [triggerGetCourse] = useLazyGetCourseByCourseIdQuery();
+  const {addItem, cartItems} = useCart();
   const router = useRouter();
-  const [token, setValueToken] = useState(getToken());
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkTokenValidity = async (token) => {
-      if (!token) {
-        // alert("Khac token");
-        setIsLoggedIn(false);
-
-        return;
-      }
-      // alert("da goi fetch");
+    const checkTokenValidity = async () => {
       try {
-        const response = await fetch("http://localhost:8080/auth/introspect", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json", // Set the content type to JSON
-          },
-          body: JSON.stringify({ token: token }),
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log("hello" + JSON.stringify(data));
-        if (data.result.valid !== true) {
-          setUser(null);
-          setIsLoggedIn(false);
-          // alert("dang nhap sai");
-        } else {
           const userResponse = await fetch(
             "http://localhost:8080/users/myInfo",
             {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+              credentials: 'include',
             }
           );
-
           if (!userResponse.ok) {
-            throw new Error(
-              `Lỗi khi lấy thông tin người dùng! status: ${userResponse.status}`
-            );
+            setIsLoggedIn(false);
+            setLoading(false);
           }
-
-          const userData = await userResponse.json(); // Thông tin người dùng
-          // alert("Dữ liệu trả về từ fetch: " + JSON.stringify(userData));
-          setUser(userData);
-          setIsLoggedIn(true);
-          if (user?.result?.roles.some((role) => role.name == "ADMIN")) {
-            router.push("/admin");
-            // alert("dc goi");
+          else {
+            const userData = await userResponse.json();
+            if (userData?.result?.cart?.items?.length > 0) {
+              try {
+                const detailedCourses = await Promise.all(
+                  userData.result.cart.items.map(async (cartItem) => {
+                    try {
+                      const res = await triggerGetCourse(cartItem.id).unwrap();
+                      console.log(res, "res")
+                      if (!res?.result) return null;
+                      return {
+                        ...res.result,
+                        price: cartItem.discountedPrice ?? cartItem.originalPrice,
+                      };
+                    } catch (_) {
+                      return null;
+                    }
+                  })
+                );
+                detailedCourses.filter(Boolean).forEach((course) => addItem(course));
+              } catch (err) {
+                console.error("Failed to fetch course details for cart:", err);
+              }
+            }
+            setIsLoggedIn(true);
+            setUser(userData);
+            console.log("🚀 ~ AuthProvider ~ user:", user)
+            setLoading(false);
           }
-        }
-      } catch (error) {
+      }catch (error) {
       }
     };
-    checkTokenValidity(token);
-  }, [token]);
+    checkTokenValidity();
+  }, [isLoggedIn]);
 
-  const login = (newToken) => {
-    setValueToken(newToken);
-    setToken(newToken); // Cập nhật token và kích hoạt lại useEffect
+  const login = async (username, password) => {
+    try {
+      const response = await fetch("http://localhost:8080/auth/log-in", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include',
+      });
+  
+      if (response.ok) {
+        setIsLoggedIn(true);
+        return true;
+      } else {
+        setIsLoggedIn(false);
+        return false;
+      }
+    } catch (error) {
+      setIsLoggedIn(false);
+      return false;
+    }
   };
 
-  const logout = () => {
-    removeToken();
-    setToken(null); // Cập nhật lại token khi người dùng đăng xuất
-    setValueToken(null);
-    document.cookie = "accessToken=; Max-Age=0; path=/";
-    router.push("/courses");
+  const logout = async () => {
+    // Clear client-side caches & storage BEFORE redirect
+    localStorage.removeItem("purchasedCourses");
+    // RTK query cache reset
+    store.dispatch(courseApi.util.resetApiState());
+    try {
+      const response = await fetch("http://localhost:8080/auth/log-out", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (response.ok) {
+        setIsLoggedIn(false);
+        window.dispatchEvent(new Event("cart_cleared"));
+        localStorage.removeItem("cartItems");
+        return router.push("/login");
+      }
+    } catch (error) {
+    }
+  };
+
+  const register = async (username, password) => {
+    try {
+      const response = await fetch("http://localhost:8080/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+        credentials: "include",
+      });
+      if (response.ok) {
+        setIsLoggedIn(true);
+        return true;
+      }
+    } catch (error) {
+    }
+    setIsLoggedIn(true);
+    return true;
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, loading, setIsLoggedIn }}>
       {children}
     </AuthContext.Provider>
   );
