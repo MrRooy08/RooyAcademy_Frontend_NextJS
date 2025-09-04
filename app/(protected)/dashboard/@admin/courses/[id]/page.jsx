@@ -244,7 +244,7 @@ export default function CourseDetailPage() {
           className="flex items-center justify-between"
         >
           <div className="flex-1 flex items-center space-x-4">
-            <Link href="/dashboard">
+            <Link href="/dashboard?role=ADMIN">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Quay lại

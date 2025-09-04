@@ -29,7 +29,7 @@ export default function Signup() {
     if (!isOtpSent) {
       if (!vals.password) errs.password = "Mật khẩu bắt buộc";
     } else {
-      if (!otp) errs.otp = "Mã OTP bắt buộc";
+      if (!otp || otp.length < 6) errs.otp = "Mã OTP phải có 6 ký tự";
     }
     return errs;
   };
@@ -41,7 +41,7 @@ export default function Signup() {
     if (!isOtpSent) {
       setIsSubmiting(true);
       try {
-        const response = await fetch("http://localhost:8080/users", {
+        const response = await fetch("https://db2777da0cce.ngrok-free.app/users", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -49,10 +49,13 @@ export default function Signup() {
           body: JSON.stringify(values),
           credentials: "include",
         });
-        toast.success("Mã otp đã được gửi đến email của bạn!");
-        if (!response.ok) {
-          toast.error("Lỗi khi đăng ký!");
+        const data = await response.json();
+        console.log(data,"hello datat")
+        if (data.code === 1001) {
+          toast.error("Tài khoản đã tồn tại!");
+          return;
         }
+        toast.success("Mã otp đã được gửi đến email của bạn!");
         setIsOtpSent(true);
       } catch (e) {
         toast.error("Lỗi khi đăng ký!");
@@ -62,7 +65,7 @@ export default function Signup() {
     } else {
       setIsVerifying(true);
       try {
-        const response = await fetch("http://localhost:8080/users/verify-otp", {
+        const response = await fetch("https://db2777da0cce.ngrok-free.app/users/verify-otp", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -71,7 +74,15 @@ export default function Signup() {
           credentials: "include",
         });
         if (!response.ok) {
-          toast.error("Mã OTP không đúng!");
+          toast.error("Mã OTP không đúng!", {
+            duration: 5000,
+            position: "top-right",
+            style:{
+              color:"red",
+              fontSize:"16px"
+            }
+          });
+          return;
         }
         toast.success("Đăng ký thành công!");
         const success = await login(values.username, values.password);
@@ -79,7 +90,14 @@ export default function Signup() {
           router.push("/courses");
         }
       } catch (e) {
-        toast.error("Mã OTP không đúng hoặc đã hết hạn");
+        toast.error("Mã OTP không đúng hoặc đã hết hạn", {
+          duration: 5000,
+          position: "top-right",
+          style:{
+            color:"red",
+            fontSize:"16px"
+          }
+        });
       } finally {
         setIsVerifying(false);
       }

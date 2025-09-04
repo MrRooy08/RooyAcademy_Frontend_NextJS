@@ -20,9 +20,11 @@ export const AuthProvider = ({ children }) => {
     const checkTokenValidity = async () => {
       try {
           const userResponse = await fetch(
-            "http://localhost:8080/users/myInfo",
+            "/api/users/myInfo",
             {
+              method: "GET",
               credentials: 'include',
+              headers: { 'ngrok-skip-browser-warning': 'true' },
             }
           );
           if (!userResponse.ok) {
@@ -66,10 +68,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await fetch("http://localhost:8080/auth/log-in", {
+      const response = await fetch("/api/auth/log-in", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify({ username, password }),
         credentials: 'include',
@@ -90,16 +93,20 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     // Clear client-side caches & storage BEFORE redirect
+    setLoading(true);
     localStorage.removeItem("purchasedCourses");
     // RTK query cache reset
     store.dispatch(courseApi.util.resetApiState());
+
     try {
-      const response = await fetch("http://localhost:8080/auth/log-out", {
+      const response = await fetch("/api/auth/log-out", {
         method: "POST",
         credentials: "include",
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
       if (response.ok) {
         setIsLoggedIn(false);
+        setLoading(false);
         window.dispatchEvent(new Event("cart_cleared"));
         localStorage.removeItem("cartItems");
         return router.push("/login");
@@ -110,10 +117,11 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (username, password) => {
     try {
-      const response = await fetch("http://localhost:8080/users", {
+      const response = await fetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify({ username, password }),
         credentials: "include",

@@ -61,6 +61,7 @@ export default function Login() {
             "http://localhost:8080/users/myInfo",
             {
               credentials: 'include',
+              headers: { 'ngrok-skip-browser-warning': 'true' },
             }
           )
           const userInfo = await userResponse.json();

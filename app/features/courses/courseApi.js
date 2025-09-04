@@ -3,8 +3,12 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const courseApi = createApi({
   reducerPath: "courseApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_API_URL,
+    baseUrl: "/api",
     credentials: "include",
+    prepareHeaders: (headers) => {
+      headers.set('ngrok-skip-browser-warning', 'true');
+      return headers;
+    },
   }),
   tagTypes: ["Course","course","Progress", "all-course-metas" ,"course-instructor", "course-meta", "course-section","lesson-section", "course-id", "Invitation"],
   endpoints: (builder) => ({
