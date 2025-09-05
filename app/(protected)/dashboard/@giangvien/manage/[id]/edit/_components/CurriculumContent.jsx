@@ -12,6 +12,7 @@ import { AssignmentModal } from "./AssignmentModal"
 import { useGetSectionByCourseQuery, useUpdateSectionBySectionMutation } from "@/app/features/courses/courseApi"
 import LoadingSpinner from "@/app/_components/LoadingSpinner"
 import { toast } from "sonner"
+import {ProgressbarUpload } from "./ProgressbarUpload"
 
 
 export function CurriculumContent({ courseId, onPreview }) {
@@ -29,6 +30,8 @@ export function CurriculumContent({ courseId, onPreview }) {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false)
+
+  const [files, setFiles] = useState(null)
 
   const [modalMode, setModalMode] = useState("add")
 
@@ -225,7 +228,13 @@ export function CurriculumContent({ courseId, onPreview }) {
     setSectionEditingId(null);
   };
 
+  const handleUploadSuccess = (files) => {
+    setFiles(files)
+  }
 
+  const handleUploadFinish = () => {
+    setFiles({});
+  };
 
   const ResourceDropdown = ({ mediaList = [] }) => {
     if (!mediaList.length) return null
@@ -261,6 +270,7 @@ export function CurriculumContent({ courseId, onPreview }) {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <ProgressbarUpload files={files} onFinish={handleUploadFinish}/>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Chương trình giảng dạy</h1>
         <Button variant="outline" onClick={onPreview}>
@@ -526,6 +536,7 @@ export function CurriculumContent({ courseId, onPreview }) {
           position={courseData?.find((section) => section.id === currentSectionId)?.lessons.length || 0}
           editingLesson={editingLesson}
           mode={modalMode}
+          onUploadSuccess={handleUploadSuccess}
         />
       )}
 

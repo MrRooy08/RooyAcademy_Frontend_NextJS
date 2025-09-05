@@ -2,8 +2,12 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 export const transactionApi = createApi({
   reducerPath: "transactionApi",
-  baseQuery: fetchBaseQuery({ baseUrl: process.env.NEXT_PUBLIC_API_URL,
+  baseQuery: fetchBaseQuery({ baseUrl: "/api",
     credentials: "include",
+    prepareHeaders: (headers) => {
+      headers.set('ngrok-skip-browser-warning', 'true');
+      return headers;
+    },
    }),
   
    endpoints: (builder) => ({

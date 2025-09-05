@@ -20,6 +20,7 @@ import { useCart } from "../Context/CartContext"
 import PersonAdd from "@mui/icons-material/PersonAdd";
 import Settings from "@mui/icons-material/Settings";
 import Logout from "@mui/icons-material/Logout";
+import  LoadingOverlay  from "@/app/_components/LoadingOverlay";
 import { useAuth } from "../Context/AuthContext";
 import { useRouter } from "next/navigation";
 import Categories from "../(route)/category/_components/Categories";
@@ -31,7 +32,7 @@ import Link from "next/link";
 
 function Header() {
   const router = useRouter();
-  const { isLoggedIn, user, logout } = useAuth();
+  const { isLoggedIn, user, logout, loading } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollTop, setLastScrollTop] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -211,7 +212,7 @@ function Header() {
             </MenuItem>
           ) : (
             <MenuItem component={Link} href="/dashboard">
-              <Avatar /> Dashboard
+              <Avatar /> Dashboard thường
             </MenuItem>
           )
         }
@@ -238,7 +239,7 @@ function Header() {
           <ListItemIcon>
             <Logout fontSize="small" />
           </ListItemIcon>
-          Logout
+          {loading ? <LoadingOverlay /> : "Logout"}
         </MenuItem>
       </Menu>
     </div>

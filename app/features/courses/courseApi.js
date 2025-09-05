@@ -3,8 +3,12 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const courseApi = createApi({
   reducerPath: "courseApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_API_URL,
+    baseUrl: "/api",
     credentials: "include",
+    prepareHeaders: (headers) => {
+      headers.set('ngrok-skip-browser-warning', 'true');
+      return headers;
+    },
   }),
   tagTypes: ["Course","course","Progress", "all-course-metas" ,"course-instructor", "course-meta", "course-section","lesson-section", "course-id", "Invitation"],
   endpoints: (builder) => ({
@@ -165,6 +169,22 @@ export const courseApi = createApi({
     }),
 
     //
+    uploadChunkFile: builder.mutation({
+      query: ({chunk, index, filedId}) => {
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+        formData.append("index", index);
+        formData.append("fileId", filedId);
+
+        return {
+          url: `lesson/upload-chunk-file/${filedId}`,
+          method: "POST",
+          body: formData,
+        };
+      },
+    }),
+
+
     updateLessonBySection: builder.mutation({
       query: ({ lessonId, lesson, files, videoFile }) => {
         const formData = new FormData();
@@ -360,6 +380,7 @@ export const {
   useCreateLessonBySectionMutation,
   useUpdateLessonBySectionMutation,
   useUpdateCoursePriceByCourseIdMutation,
+  useUploadChunkFileMutation,
   useGetCoursesByRoleQuery,
   useGetCourseByCourseIdQuery,
   useLazyGetCourseByCourseIdQuery,
