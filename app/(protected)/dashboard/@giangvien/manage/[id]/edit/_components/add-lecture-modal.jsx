@@ -11,6 +11,7 @@ import { Upload, Plus, X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCreateLessonBySectionMutation, useUpdateLessonBySectionMutation } from "@/app/features/courses/courseApi"
 import { toast } from "sonner"
+import { chunkFile } from "@/lib/media"
 import ReactQuill from "react-quill-new"
 import "react-quill-new/dist/quill.snow.css"
 
@@ -19,7 +20,7 @@ import "react-quill-new/dist/quill.snow.css"
 
 export function AddLectureModal({ isOpen, onClose,
   sectionId,
-  editingLesson, mode = "add", position }) {
+  editingLesson, mode = "add", position, onUploadSuccess }) {
   const [createLessonBySection] = useCreateLessonBySectionMutation()
   const [updateLessonBySection] = useUpdateLessonBySectionMutation()
   const videoUrlRef = useRef(null)
@@ -92,24 +93,22 @@ export function AddLectureModal({ isOpen, onClose,
         )
         setIsPreviewable(String(editingLesson?.isPreviewable).toLowerCase() === "true");
         console.log("editingLesson", editingLesson);
-      } else {
-        resetForm()
       }
     }
-  }, [isOpen, mode, editingLesson, resetForm])
+  }, [isOpen, mode, editingLesson])
 
   const handleClose = useCallback(() => {
     setShowResourceModal(false)
-    resetForm()
     onClose()
-  }, [onClose, resetForm])
+  }, [onClose])
+
+
 
   const handleSubmit = async () => {
     if (!title.trim()) return
     const mediaKept = resources
       .filter(r => r.type === "file" && typeof r.file !== "object") // file không phải là File object (tức là cũ)
       .map(r => r.id); // dùng id để gửi về mediaKept
-
 
     const lesson = {
       name: title,
@@ -123,8 +122,12 @@ export function AddLectureModal({ isOpen, onClose,
     const files = resources.filter((r) => r.type === "file" && r.file instanceof File).map((r) => r.file)
     try {
       if (mode === "edit") {
+        console.log("🚀 ~ handleSubmit ~ video:", video)
+        if (video instanceof File) {
+          onUploadSuccess(video);
+        }
         await updateLessonBySection({
-          lessonId: editingLesson.id,
+          lessonId: 0,
           lesson: lesson,
           files: files,
           videoFile: video,
@@ -142,7 +145,7 @@ export function AddLectureModal({ isOpen, onClose,
             borderRadius: '10px',
           },
         })
-        resetForm()
+        // resetForm()
         onClose();
       } else {
         await createLessonBySection({
@@ -164,7 +167,7 @@ export function AddLectureModal({ isOpen, onClose,
             borderRadius: '10px',
           },
         })
-        resetForm()
+        // resetForm()
         onClose();
       }
       handleClose()
@@ -197,19 +200,16 @@ export function AddLectureModal({ isOpen, onClose,
   }, [])
 
   const handleVideoUpload = (event) => {
+    console.log("🚀 ~ handleVideoUpload ~ event:", event)
     const file = event.target.files?.[0];
     if (file) {
       cleanupVideoUrl(); // clear cái cũ
-
       const url = URL.createObjectURL(file);
       videoUrlRef.current = url;
       setVideo(file);
       setVideoPreviewUrl(url); // lưu URL ra state
     }
   };
-
-
-
 
   return (
     <>

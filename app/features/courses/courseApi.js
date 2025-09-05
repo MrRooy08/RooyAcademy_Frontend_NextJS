@@ -169,6 +169,22 @@ export const courseApi = createApi({
     }),
 
     //
+    uploadChunkFile: builder.mutation({
+      query: ({chunk, index, filedId}) => {
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+        formData.append("index", index);
+        formData.append("fileId", filedId);
+
+        return {
+          url: `lesson/upload-chunk-file/${filedId}`,
+          method: "POST",
+          body: formData,
+        };
+      },
+    }),
+
+
     updateLessonBySection: builder.mutation({
       query: ({ lessonId, lesson, files, videoFile }) => {
         const formData = new FormData();
@@ -364,6 +380,7 @@ export const {
   useCreateLessonBySectionMutation,
   useUpdateLessonBySectionMutation,
   useUpdateCoursePriceByCourseIdMutation,
+  useUploadChunkFileMutation,
   useGetCoursesByRoleQuery,
   useGetCourseByCourseIdQuery,
   useLazyGetCourseByCourseIdQuery,
